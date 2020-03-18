@@ -38,6 +38,9 @@
 #include <vector>
 #include <exception>
 
+
+#include <sys/time.h>
+
 /*
  * PI constant needed for (multiControlled) sGate and tGate
  */
@@ -1346,6 +1349,13 @@ void local_freeCircuit(
  */
 void internal_applyCircuit(int id, int storeBackup, int showProgress) {
     
+    // start timing
+    // start timing
+    struct timeval timeInst;
+    gettimeofday(&timeInst, NULL);
+    long double startTime = (
+        timeInst.tv_sec + (long double) timeInst.tv_usec/pow(10,6));
+    
     // get arguments from MMA link; these must be later freed!
     int numOps;
     int *opcodes, *ctrls, *numCtrlsPerOp, 
@@ -1403,6 +1413,7 @@ void internal_applyCircuit(int id, int storeBackup, int showProgress) {
             showProgress); // throws
             
         // return lists of measurement outcomes
+        /*
         mesInd = 0;
         WSPutFunction(stdlink, "List", totalNumMesGates);
         for (int opInd=0; opInd < numOps; opInd++) {
@@ -1412,6 +1423,7 @@ void internal_applyCircuit(int id, int storeBackup, int showProgress) {
                     WSPutInteger(stdlink, mesOutcomeCache[mesInd++]);
             }
         }
+        */
         
         // clean-up
         if (storeBackup)
@@ -1449,6 +1461,14 @@ void internal_applyCircuit(int id, int storeBackup, int showProgress) {
             local_sendErrorAndFail("ApplyCircuit", 
                 "Error in " + err.thrower + ": " + err.message + backupNotice);
     }
+    
+    // stop timing
+    gettimeofday(&timeInst, NULL);
+    long double endTime = (
+        timeInst.tv_sec + (long double) timeInst.tv_usec/pow(10,6));
+        
+    qreal dur = endTime - startTime;
+    WSPutReal64(stdlink, dur);
 }
 
 /* @precondition quregs must be prior initialised and cloned to the initial state of the circuit.
