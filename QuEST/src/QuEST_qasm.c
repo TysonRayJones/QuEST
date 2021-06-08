@@ -659,8 +659,8 @@ void qasm_recordMultiVarPhaseFunc(Qureg qureg, int* qubits, int* numQubitsPerReg
         addMultiVarOverridesToQASM(qureg, numRegs, overrideInds, overridePhases, numOverrides);
 }
 
-                                                                                           // TODO: parse encoding
 void qasm_recordNamedPhaseFunc(Qureg qureg, int* qubits, int* numQubitsPerReg, int numRegs, enum bitEncoding encoding, enum phaseFunc funcName, qreal* params, int numParams, long long int* overrideInds, qreal* overridePhases, int numOverrides) {
+    // I apologise to my future self and my esteemed readers for such terrible code
     
     if (!qureg.qasmLog->isLogging)
         return;
@@ -668,25 +668,80 @@ void qasm_recordNamedPhaseFunc(Qureg qureg, int* qubits, int* numQubitsPerReg, i
     qasm_recordComment(qureg, "Here, applyNamedPhaseFunc() multiplied a complex scalar of form");
     char line[MAX_LINE_LEN+1];
     
-    // record like
-    //      exp(i sqrt(x^2 + y^2 + z^2)) or exp(i sqrt(x0^2 + x1^2 + ...))
     int len = snprintf(line, MAX_LINE_LEN, "//     exp(i ");
     
-    // record norm-based function
+    // record norm-based function, like:  (-1.0) / sqrt(x^2 + y^2 + z^2 + ...)
     if (funcName == NORM || funcName == SCALED_NORM || 
         funcName == INVERSE_NORM || funcName == SCALED_INVERSE_NORM)
     {
+        // coefficient
         if (funcName == SCALED_NORM || funcName == SCALED_INVERSE_NORM)
             len += snprintf(line+len, MAX_LINE_LEN-len, (params[0]>0)? "%g ":"(%g) ", params[0]);
+            
+        // sqrt(
         if (funcName == NORM || funcName == SCALED_NORM)
             len += snprintf(line+len, MAX_LINE_LEN-len, "sqrt(");
-        else if (funcName == INVERSE_NORM || funcName == SCALED_INVERSE_NORM)
-            len += snprintf(line+len, MAX_LINE_LEN-len, "1/sqrt(");
+        else if (funcName == INVERSE_NORM)
+            len += snprintf(line+len, MAX_LINE_LEN-len, "1 / sqrt(");
+        else if (funcName == SCALED_INVERSE_NORM)
+            len += snprintf(line+len, MAX_LINE_LEN-len, "/ sqrt(");
+            
+        // x^2 + y^2 + ...
         if (numRegs <= MAX_REG_SYMBS)
             for (int r=0; r<numRegs; r++)
                 len += snprintf(line+len, MAX_LINE_LEN-len, (r < numRegs - 1)? "%c^2 + ":"%c^2))\n", getPhaseFuncSymbol(numRegs,r));
         else
             len += snprintf(line+len, MAX_LINE_LEN-len, "x0^2 + x1^2 + x2^2... ))\n");
+    }
+    // record product-based, like (-1.0) 1/(x y z) ...
+    else if (funcName == PRODUCT || funcName == SCALED_PRODUCT || 
+        funcName == INVERSE_PRODUCT || funcName == SCALED_INVERSE_PRODUCT)
+    {
+        // coefficient
+        if (funcName == SCALED_PRODUCT || funcName == SCALED_INVERSE_PRODUCT)
+            len += snprintf(line+len, MAX_LINE_LEN-len, (params[0]>0)? "%g ":"(%g) ", params[0]);
+            
+        // reciprocal
+        if (funcName == INVERSE_PRODUCT)
+            len += snprintf(line+len, MAX_LINE_LEN-len, "1 / (");
+        else if (funcName == SCALED_INVERSE_PRODUCT)
+            len += snprintf(line+len, MAX_LINE_LEN-len, "/ (");
+            
+        // x y z ...
+        if (numRegs <= MAX_REG_SYMBS)
+            for (int r=0; r<numRegs; r++)
+                len += snprintf(line+len, MAX_LINE_LEN-len, (r < numRegs - 1)? "%c ":"%c)", getPhaseFuncSymbol(numRegs,r));
+        else
+            len += snprintf(line+len, MAX_LINE_LEN-len, "x0 x1 x2 ...)");
+            
+        // close reciprocal brackets
+        if (funcName == INVERSE_PRODUCT || funcName == SCALED_INVERSE_PRODUCT)
+            len += snprintf(line+len, MAX_LINE_LEN-len, ")");
+        len += snprintf(line+len, MAX_LINE_LEN-len, "\n");
+    }
+    // record distance-based, like (-1.0) 1/sqrt((x1-x2)^2 + (y1-y2)^2 + ...)
+    else if (funcName == DISTANCE || funcName == SCALED_DISTANCE || 
+        funcName == INVERSE_DISTANCE || funcName == SCALED_INVERSE_DISTANCE)
+    {
+        // coefficient
+        if (funcName == SCALED_DISTANCE || funcName == SCALED_INVERSE_DISTANCE)
+            len += snprintf(line+len, MAX_LINE_LEN-len, (params[0]>0)? "%g ":"(%g) ", params[0]);
+            
+        // sqrt(
+        if (funcName == DISTANCE || funcName == SCALED_DISTANCE)
+            len += snprintf(line+len, MAX_LINE_LEN-len, "sqrt(");
+        else if (funcName == INVERSE_DISTANCE)
+            len += snprintf(line+len, MAX_LINE_LEN-len, "1 / sqrt(");
+        else if (funcName == SCALED_INVERSE_DISTANCE)
+            len += snprintf(line+len, MAX_LINE_LEN-len, "/ sqrt(");
+            
+        // x^2 + y^2 + ...
+        if (numRegs <= MAX_REG_SYMBS)
+            for (int r=0; r<numRegs; r+=2)
+                len += snprintf(line+len, MAX_LINE_LEN-len, (r+1 < numRegs-1)? "(%c-%c)^2 + ":"(%c-%c)^2))\n", 
+                    getPhaseFuncSymbol(numRegs,r), getPhaseFuncSymbol(numRegs,r+1));
+        else
+            len += snprintf(line+len, MAX_LINE_LEN-len, "(x0-x1)^2 + (x2-x3)^2 + ...))\n");
     }
     
     if (len >= MAX_LINE_LEN)
