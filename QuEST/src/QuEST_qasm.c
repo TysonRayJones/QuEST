@@ -604,7 +604,6 @@ void addMultiVarOverridesToQASM(Qureg qureg, int numRegs, long long int* overrid
     }
 }
 
-                                                                                            // TODO: parse encoding
 void qasm_recordMultiVarPhaseFunc(Qureg qureg, int* qubits, int* numQubitsPerReg, int numRegs, enum bitEncoding encoding, qreal* coeffs, qreal* exponents, int* numTermsPerReg, long long int* overrideInds, qreal* overridePhases, int numOverrides) {
     
     if (!qureg.qasmLog->isLogging)
@@ -735,7 +734,7 @@ void qasm_recordNamedPhaseFunc(Qureg qureg, int* qubits, int* numQubitsPerReg, i
         else if (funcName == SCALED_INVERSE_DISTANCE)
             len += snprintf(line+len, MAX_LINE_LEN-len, "/ sqrt(");
             
-        // x^2 + y^2 + ...
+        // (x-y)^2 + (z-t)^2 + ...
         if (numRegs <= MAX_REG_SYMBS)
             for (int r=0; r<numRegs; r+=2)
                 len += snprintf(line+len, MAX_LINE_LEN-len, (r+1 < numRegs-1)? "(%c-%c)^2 + ":"(%c-%c)^2))\n", 
